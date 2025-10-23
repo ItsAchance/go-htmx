@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strconv"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -13,7 +14,7 @@ import (
 type Movie struct {
 	Title    string
 	Director string
-	Rating   int8
+	Rating   int
 	Favorite bool
 }
 
@@ -32,8 +33,8 @@ func createMovieTable(db *sql.DB) {
 	}
 }
 
-func findMovie(db *sql.DB) (title string, director string, rating int8, favorite bool) {
-	query := "SELECT title, director, rating, favorite FROM movies WHERE title = 'The Batman';"
+func findMovie(db *sql.DB) (title string, director string, rating int, favorite bool) {
+	query := "SELECT title, director, rating, favorite FROM movies WHERE title = ?;"
 
 	err := db.QueryRow(query).Scan(&title, &director, &rating, &favorite)
 	if err != nil {
@@ -50,7 +51,7 @@ func findAllDataAllMovies(db *sql.DB) []Movie {
 
 	var title string
 	var director string
-	var rating int8
+	var rating int
 	var favorite bool
 
 	data := []Movie{}
@@ -93,34 +94,61 @@ func main() {
 	// Creates movie table if not alrady created
 	createMovieTable(db)
 
-	// Inserts movie in DB
-	movie := Movie{"American Psycho", "Mary Harron", 7, false}
-	pk := insertMovie(db, movie)
-	fmt.Printf("Inserted row ID: %d\n", pk)
-
-	// Query DB for movie
-	title, director, rating, favorite := findMovie(db)
-	fmt.Printf("Found: %s, %s, %d, %t\n", title, director, rating, favorite)
-
-	// Query all rows in DB
-	rows := findAllDataAllMovies(db)
-	fmt.Printf("All rows: %v\n", rows)
-
-	h1 := func(w http.ResponseWriter, r *http.Request) {
+	home := func(w http.ResponseWriter, r *http.Request) {
 		tmpl := template.Must(template.ParseFiles("index.html"))
+		tmpl.Execute(w, nil)
+	}
+
+	addNewMovie := func(w http.ResponseWriter, r *http.Request) {
+		// Inserts movie in DB
+		title := r.PostFormValue("title")
+		director := r.PostFormValue("director")
+		ratingStr := r.PostFormValue("rating")
+		ratingInt, err := strconv.Atoi(ratingStr)
+		if err != nil {
+			http.Error(w, "Invalid integer", http.StatusBadRequest)
+		}
+		favorite := r.FormValue("favorite") == "true"
+
+		movie := Movie{title, director, ratingInt, favorite}
+		pk := insertMovie(db, movie)
+		fmt.Printf("Inserted row ID: %d\n", pk)
+		tmpl := template.Must(template.ParseFiles("index.html"))
+
 		movies := map[string][]Movie{
 			"Movies": {
-				{Title: "The Interview", Rating: 9, Director: "Seth Rogen"},
+				{Title: title, Rating: ratingInt, Director: director, Favorite: favorite},
 			},
 		}
 		tmpl.Execute(w, movies)
 	}
 
-	h2 := func(w http.ResponseWriter, r *http.Request) {
-		title := r.PostFormValue("title")
-		director := r.PostFormValue("director")
-		rating := r.PostFormValue("rating")
-		htmlStr := fmt.Sprintf("<li>%s - %s - %v</li>", title, director, rating)
+	getAll := func(w http.ResponseWriter, r *http.Request) {
+		// Query all rows in DB
+		rows := findAllDataAllMovies(db)
+		fmt.Printf("All rows: %v\n", rows)
+
+		// htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", title, director, rating, favorite)
+		// tmpl, _ := template.New("t").Parse(htmlStr)
+		// tmpl.Execute(w, nil)
+
+		log.Print("HTMX request received")
+		log.Print(r.Header.Get("HX-Request"))
+	}
+
+	findMovie := func(w http.ResponseWriter, r *http.Request) {
+		// Query DB for movie
+		inputTitle := r.PostFormValue("new-title")
+		fmt.Println(inputTitle)
+		inputDirector := r.PostFormValue("director")
+		inputRating := r.PostFormValue("rating")
+		inputFavorite := r.PostFormValue("favorite")
+		fmt.Println(inputDirector)
+		fmt.Println(inputRating)
+		fmt.Println(inputFavorite)
+		// inputrows := findMovie(db)
+
+		htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", inputTitle, inputDirector, inputRating, inputFavorite)
 		tmpl, _ := template.New("t").Parse(htmlStr)
 		tmpl.Execute(w, nil)
 
@@ -128,8 +156,10 @@ func main() {
 		log.Print(r.Header.Get("HX-Request"))
 	}
 
-	http.HandleFunc("/", h1)
-	http.HandleFunc("/add-movie", h2)
+	http.HandleFunc("/", home)
+	http.HandleFunc("/add-new-movie", addNewMovie)
+	http.HandleFunc("/get-movies", getAll)
+	http.HandleFunc("/find-movie", findMovie)
 
 	log.Fatal(http.ListenAndServe(":8000", nil))
 }
