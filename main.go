@@ -99,8 +99,8 @@ func main() {
 		tmpl.Execute(w, nil)
 	}
 
+	// Inserts movie in DB
 	addNewMovie := func(w http.ResponseWriter, r *http.Request) {
-		// Inserts movie in DB
 		title := r.PostFormValue("title")
 		director := r.PostFormValue("director")
 		ratingStr := r.PostFormValue("rating")
@@ -110,21 +110,24 @@ func main() {
 		}
 		favorite := r.FormValue("favorite") == "true"
 
+		// Insert into new row
 		movie := Movie{title, director, ratingInt, favorite}
 		pk := insertMovie(db, movie)
 		fmt.Printf("Inserted row ID: %d\n", pk)
-		tmpl := template.Must(template.ParseFiles("index.html"))
 
 		movies := map[string][]Movie{
 			"Movies": {
 				{Title: title, Rating: ratingInt, Director: director, Favorite: favorite},
 			},
 		}
+		// Return confirmation that movie was added
+		htmlStr := fmt.Sprintf("%s added", title)
+		tmpl, _ := template.New("t").Parse(htmlStr)
 		tmpl.Execute(w, movies)
 	}
 
+	// Query all rows in DB
 	getAll := func(w http.ResponseWriter, r *http.Request) {
-		// Query all rows in DB
 		rows := findAllDataAllMovies(db)
 		fmt.Printf("All rows: %v\n", rows)
 
@@ -136,8 +139,8 @@ func main() {
 		log.Print(r.Header.Get("HX-Request"))
 	}
 
+	// Query DB for movie
 	findMovie := func(w http.ResponseWriter, r *http.Request) {
-		// Query DB for movie
 		inputTitle := r.PostFormValue("new-title")
 		fmt.Println(inputTitle)
 		inputDirector := r.PostFormValue("director")

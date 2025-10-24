@@ -12,13 +12,9 @@
 
 <body>
     <h1>My movie ratings</h1>
-    <ul id="movie-list">
-        {{ range .Movies }}
-        <li>{{ .Title }} - {{ .Director }} - {{ .Rating }}</li>
-        {{ end }}
-    </ul>
+        <p id="add-movie-field"></p>
 
-    <form hx-post="/add-new-movie" hx-target="#movie-list" hx-swap="beforeend">
+    <form hx-post="/add-new-movie" hx-target="#add-movie-field">
         <label for="movie-title">Title</label>
         <input type="text" name="title" id="movie-title">
 
