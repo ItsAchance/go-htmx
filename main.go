@@ -83,6 +83,30 @@ func insertMovie(db *sql.DB, movie Movie) int {
 	return pk
 }
 
+func queryMovies(db *sql.DB, query string, params []any) []Movie {
+	var title string
+	var director string
+	var rating int
+	var favorite bool
+
+	data := []Movie{}
+	rows, err := db.Query(query, params...)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		err := rows.Scan(&title, &director, &rating, &favorite)
+		if err != nil {
+			log.Fatal(err)
+		}
+		data = append(data, Movie{title, director, rating, favorite})
+	}
+
+	return data
+}
+
 func main() {
 	// Connect to DB
 	db, _ := sql.Open("sqlite3", "movie-db.db")
@@ -129,7 +153,6 @@ func main() {
 		//	fmt.Printf("All rows: %v\n", rows)
 
 		for _, row := range rows {
-			// fmt.Printf("Title: %v\nDirector: %v\nRating: %v,\nFavorite: %v\n", row.Title, row.Director, row.Rating, row.Favorite)
 			htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", row.Title, row.Director, row.Rating, row.Favorite)
 			tmpl, _ := template.New("t").Parse(htmlStr)
 			tmpl.Execute(w, nil)
@@ -148,6 +171,7 @@ func main() {
 		title := r.FormValue("title")
 		director := r.FormValue("director")
 		ratingStr := r.FormValue("rating")
+
 		// Check if rating is non-empty value and can be converted to int
 		if ratingStr != "" {
 			converted, err := strconv.Atoi(ratingStr)
@@ -159,23 +183,34 @@ func main() {
 		}
 		favorite := r.FormValue("favorite") == "true"
 
+		// If title is provided, QueryRow() is used to return a single result
 		if title != "" {
 			if len(params) == 0 {
 				query += "title LIKE ? "
-				params = append(params, "%" + title + "%")
+				params = append(params, "%"+title+"%")
 			} else {
 				query += "AND title LIKE ? "
-				params = append(params, "%" + title + "%")
+				params = append(params, "%"+title+"%")
 			}
+
+			title, director, ratingInt, favorite = queryMovie(db, query, params)
+
+			htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", title, director, ratingInt, favorite)
+			tmpl, _ := template.New("t").Parse(htmlStr)
+			tmpl.Execute(w, nil)
+
+			log.Print("HTMX request received")
+			log.Print(r.Header.Get("HX-Request"))
 		}
 
+		// If director, rating or favorite is queried, Query() is used to return multiple results
 		if director != "" {
 			if len(params) == 0 {
 				query += "director LIKE ? "
-				params = append(params, "%" + director + "%") 
+				params = append(params, "%"+director+"%")
 			} else {
 				query += "AND director LIKE ? "
-				params = append(params, "%" + director + "%") 
+				params = append(params, "%"+director+"%")
 			}
 		}
 
@@ -201,14 +236,17 @@ func main() {
 
 		fmt.Println(params)
 		fmt.Println(query)
-		title, director, ratingInt, favorite = queryMovie(db, query, params)
 
-		htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", title, director, ratingInt, favorite)
-		tmpl, _ := template.New("t").Parse(htmlStr)
-		tmpl.Execute(w, nil)
+		rows := queryMovies(db, query, params)
 
-		log.Print("HTMX request received")
-		log.Print(r.Header.Get("HX-Request"))
+		for _, row := range rows {
+			htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", row.Title, row.Director, row.Rating, row.Favorite)
+			tmpl, _ := template.New("t").Parse(htmlStr)
+			tmpl.Execute(w, nil)
+
+			log.Print("HTMX request received")
+			log.Print(r.Header.Get("HX-Request"))
+		}
 	}
 
 	http.HandleFunc("/", home)
