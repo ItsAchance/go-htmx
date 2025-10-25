@@ -21,7 +21,7 @@ type Movie struct {
 func createMovieTable(db *sql.DB) {
 	query := `CREATE TABLE IF NOT EXISTS movies(
 		id INTEGER PRIMARY KEY,
-		title TEXT NOT NULL,
+		title TEXT NOT NULL UNIQUE,
 		director TEXT NOT NULL,
 		rating INTEGER NOT NULL,
 		favorite BOOL NOT NULL,
@@ -33,22 +33,20 @@ func createMovieTable(db *sql.DB) {
 	}
 }
 
-func findMovie(db *sql.DB) (title string, director string, rating int, favorite bool) {
-	query := "SELECT title, director, rating, favorite FROM movies WHERE title = ?;"
-
-	err := db.QueryRow(query).Scan(&title, &director, &rating, &favorite)
+func queryMovie(db *sql.DB, query string, params []any) (title string, director string, rating int, favorite bool) {
+	err := db.QueryRow(query, params...).Scan(&title, &director, &rating, &favorite)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Fatalf("No movie found with the name of: %s\n", "The Fartman")
+			log.Printf("No movie found with the info of: %s\n", query)
+			return "", "", 0, false
 		}
 		log.Fatal(err)
 	}
 	return title, director, rating, favorite
 }
 
-func findAllDataAllMovies(db *sql.DB) []Movie {
+func queryAllDataAllMovies(db *sql.DB) []Movie {
 	query := "SELECT title, director, rating, favorite FROM movies;"
-
 	var title string
 	var director string
 	var rating int
@@ -120,7 +118,6 @@ func main() {
 				{Title: title, Rating: ratingInt, Director: director, Favorite: favorite},
 			},
 		}
-		// Return confirmation that movie was added
 		htmlStr := fmt.Sprintf("%s added", title)
 		tmpl, _ := template.New("t").Parse(htmlStr)
 		tmpl.Execute(w, movies)
@@ -128,30 +125,86 @@ func main() {
 
 	// Query all rows in DB
 	getAll := func(w http.ResponseWriter, r *http.Request) {
-		rows := findAllDataAllMovies(db)
-		fmt.Printf("All rows: %v\n", rows)
+		rows := queryAllDataAllMovies(db)
+		//	fmt.Printf("All rows: %v\n", rows)
 
-		// htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", title, director, rating, favorite)
-		// tmpl, _ := template.New("t").Parse(htmlStr)
-		// tmpl.Execute(w, nil)
+		for _, row := range rows {
+			// fmt.Printf("Title: %v\nDirector: %v\nRating: %v,\nFavorite: %v\n", row.Title, row.Director, row.Rating, row.Favorite)
+			htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", row.Title, row.Director, row.Rating, row.Favorite)
+			tmpl, _ := template.New("t").Parse(htmlStr)
+			tmpl.Execute(w, nil)
+		}
 
 		log.Print("HTMX request received")
 		log.Print(r.Header.Get("HX-Request"))
 	}
 
-	// Query DB for movie
-	findMovie := func(w http.ResponseWriter, r *http.Request) {
-		inputTitle := r.PostFormValue("new-title")
-		fmt.Println(inputTitle)
-		inputDirector := r.PostFormValue("director")
-		inputRating := r.PostFormValue("rating")
-		inputFavorite := r.PostFormValue("favorite")
-		fmt.Println(inputDirector)
-		fmt.Println(inputRating)
-		fmt.Println(inputFavorite)
-		// inputrows := findMovie(db)
+	// Build string for DB query and return to user
+	getMovie := func(w http.ResponseWriter, r *http.Request) {
+		var params []any
+		var ratingInt int
+		query := "SELECT title, director, rating, favorite FROM movies WHERE "
 
-		htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", inputTitle, inputDirector, inputRating, inputFavorite)
+		title := r.FormValue("title")
+		director := r.FormValue("director")
+		ratingStr := r.FormValue("rating")
+		// Check if rating is non-empty value and can be converted to int
+		if ratingStr != "" {
+			converted, err := strconv.Atoi(ratingStr)
+			if err != nil {
+				http.Error(w, "Invalid integer", http.StatusBadRequest)
+				return
+			}
+			ratingInt = converted
+		}
+		favorite := r.FormValue("favorite") == "true"
+
+		// Only works when title is not zero-value
+		if title != "" {
+			if len(params) == 0 {
+				query += "title = ? "
+				params = append(params, title)
+			} else {
+				query += "OR title = ? "
+				params = append(params, title)
+			}
+		}
+
+		if director != "" {
+			if len(params) == 0 {
+				query += "director = ? "
+				params = append(params, director)
+			} else {
+				query += "OR director = ? "
+				params = append(params, director)
+			}
+		}
+
+		if ratingInt != 0 {
+			if len(params) == 0 {
+				query += "rating = ? "
+				params = append(params, ratingInt)
+			} else {
+				query += "OR rating = ? "
+				params = append(params, ratingInt)
+			}
+		}
+
+		if favorite != false {
+			if len(params) == 0 {
+				query += "favorite = ? "
+				params = append(params, favorite)
+			} else {
+				query += "OR favorite = ? "
+				params = append(params, favorite)
+			}
+		}
+
+		fmt.Println(params)
+		fmt.Println(query)
+		title, director, ratingInt, favorite = queryMovie(db, query, params)
+
+		htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", title, director, ratingInt, favorite)
 		tmpl, _ := template.New("t").Parse(htmlStr)
 		tmpl.Execute(w, nil)
 
@@ -162,7 +215,7 @@ func main() {
 	http.HandleFunc("/", home)
 	http.HandleFunc("/add-new-movie", addNewMovie)
 	http.HandleFunc("/get-movies", getAll)
-	http.HandleFunc("/find-movie", findMovie)
+	http.HandleFunc("/find-movie", getMovie)
 
 	log.Fatal(http.ListenAndServe(":8000", nil))
 }

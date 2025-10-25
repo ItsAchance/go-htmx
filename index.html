@@ -12,8 +12,6 @@
 
 <body>
     <h1>My movie ratings</h1>
-        <p id="add-movie-field"></p>
-
     <form hx-post="/add-new-movie" hx-target="#add-movie-field">
         <label for="movie-title">Title</label>
         <input type="text" name="title" id="movie-title">
@@ -27,34 +25,16 @@
         <label for="movie-favorite">Favorite</label>
         <input type="checkbox" name="favorite" id="movie-favorite" value="true">
 
-        <button type="submit">Submit</button><br>
+        <button type="submit">Submit</button>
+        <button type="button" hx-get="/find-movie" hx-target="#all-movies" hx-include="closest form">Find movie</button>
+        <button type="button" hx-get="/get-movies" hx-target="#all-movies">All Movies</button>
     </form>
+    <p id="add-movie-field"></p>
+    <ul>
+        <li id="all-movies"></li>
+    </ul>
     <hr>
 
-    <button hx-get="/get-movies" hx-target="#movie-list" hx-swap="beforeend" type="submit">Get movie
-        database</button><br>
-
-    <ul id="display-movie">
-        {{ range .Movies }}
-        <li>{{ .Title }} - {{ .Director }} - {{ .Rating }}</li>
-        {{ end }}
-    </ul>
-
-    <form hx-get="/findMovie" hx-target="#display-movie" hx-swap="beforeend">
-        <label for="movie-title">Title</label>
-        <input type="text" name="new-title" id="movie-title">
-
-        <label for="movie-director">Director</label>
-        <input type="text" name="director" id="movie-director">
-
-        <label for="movie-rating">Rating</label>
-        <input type="text" name="rating" id="movie-rating">
-
-        <label for="movie-favorite">Favorite</label>
-        <input type="checkbox" name="favorite" id="movie-favorite">
-
-        <button type="submit">Find movie</button>
-    </form>
 </body>
 
 </html>
