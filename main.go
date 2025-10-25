@@ -159,13 +159,12 @@ func main() {
 		}
 		favorite := r.FormValue("favorite") == "true"
 
-		// Only works when title is not zero-value
 		if title != "" {
 			if len(params) == 0 {
 				query += "title LIKE ? "
 				params = append(params, "%" + title + "%")
 			} else {
-				query += "OR title LIKE ? "
+				query += "AND title LIKE ? "
 				params = append(params, "%" + title + "%")
 			}
 		}
@@ -175,7 +174,7 @@ func main() {
 				query += "director LIKE ? "
 				params = append(params, "%" + director + "%") 
 			} else {
-				query += "OR director LIKE ? "
+				query += "AND director LIKE ? "
 				params = append(params, "%" + director + "%") 
 			}
 		}
@@ -185,7 +184,7 @@ func main() {
 				query += "rating = ? "
 				params = append(params, ratingInt)
 			} else {
-				query += "OR rating = ? "
+				query += "AND rating = ? "
 				params = append(params, ratingInt)
 			}
 		}
@@ -195,7 +194,7 @@ func main() {
 				query += "favorite = ? "
 				params = append(params, favorite)
 			} else {
-				query += "OR favorite = ? "
+				query += "AND favorite = ? "
 				params = append(params, favorite)
 			}
 		}
