@@ -162,21 +162,21 @@ func main() {
 		// Only works when title is not zero-value
 		if title != "" {
 			if len(params) == 0 {
-				query += "title = ? "
-				params = append(params, title)
+				query += "title LIKE ? "
+				params = append(params, "%" + title + "%")
 			} else {
-				query += "OR title = ? "
-				params = append(params, title)
+				query += "OR title LIKE ? "
+				params = append(params, "%" + title + "%")
 			}
 		}
 
 		if director != "" {
 			if len(params) == 0 {
-				query += "director = ? "
-				params = append(params, director)
+				query += "director LIKE ? "
+				params = append(params, "%" + director + "%") 
 			} else {
-				query += "OR director = ? "
-				params = append(params, director)
+				query += "OR director LIKE ? "
+				params = append(params, "%" + director + "%") 
 			}
 		}
 
