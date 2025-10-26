@@ -201,6 +201,7 @@ func main() {
 
 			log.Print("HTMX request received")
 			log.Print(r.Header.Get("HX-Request"))
+			return
 		}
 
 		// If director, rating or favorite is queried, Query() is used to return multiple results
