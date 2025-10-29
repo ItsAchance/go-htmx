@@ -36,20 +36,21 @@ func createMovieTable(db *sql.DB) {
 	}
 }
 
-func queryMovie(db *sql.DB, query string, params []any) (title string, director string, rating int, favorite bool) {
-	err := db.QueryRow(query, params...).Scan(&title, &director, &rating, &favorite)
+func queryMovie(db *sql.DB, query string, params []any) (id int, title string, director string, rating int, favorite bool) {
+	err := db.QueryRow(query, params...).Scan(&id, &title, &director, &rating, &favorite)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			log.Printf("No movie found with the info of: %s\n", query)
-			return "", "", 0, false
+			return 0, "", "", 0, false
 		}
 		log.Fatal(err)
 	}
-	return title, director, rating, favorite
+	return id, title, director, rating, favorite
 }
 
 func queryAllDataAllMovies(db *sql.DB) []Movie {
-	query := "SELECT title, director, rating, favorite FROM movies WHERE DELETED = 0;"
+	query := "SELECT id, title, director, rating, favorite FROM movies WHERE DELETED = 0;"
+	var id int
 	var title string
 	var director string
 	var rating int
@@ -63,11 +64,12 @@ func queryAllDataAllMovies(db *sql.DB) []Movie {
 	defer rows.Close()
 
 	for rows.Next() {
-		err := rows.Scan(&title, &director, &rating, &favorite)
+		err := rows.Scan(&id, &title, &director, &rating, &favorite)
 		if err != nil {
 			log.Fatal(err)
 		}
 		data = append(data, Movie{
+			ID:       id,
 			Title:    title,
 			Director: director,
 			Rating:   rating,
@@ -119,7 +121,7 @@ func queryMovies(db *sql.DB, query string, params []any) []Movie {
 	return data
 }
 
-func deleteFlagMovie(db *sql.DB, query string, params []any) int {
+func deleteFlagMovie(db *sql.DB, query string, params int) int {
 	var pk int
 
 	_, err := db.Exec(query, params)
@@ -227,7 +229,7 @@ func main() {
 				params = append(params, "%"+title+"%")
 			}
 
-			title, director, ratingInt, favorite = queryMovie(db, query, params)
+			id, title, director, ratingInt, favorite = queryMovie(db, query, params)
 
 			// htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", title, director, ratingInt, favorite)
 			htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v <button hx-delete=\"/delete-movie?id=%d\" hx-target=\"closest li\" hx-swap=\"outerHTML\">🗑️</button></li>", title, director, ratingInt, favorite, id)
@@ -287,11 +289,16 @@ func main() {
 	}
 
 	deleteMovie := func(w http.ResponseWriter, r *http.Request) {
-		response := r.URL.Query().Get("id")
-		fmt.Println(response)
-		//	query := "UPDATE movies SET deleted = 1 WHERE id = ? RETURNING id;"
-		//	pk := deleteFlagMovie(db, query, response)
-		//	fmt.Println(pk)
+		responseIdStr := r.URL.Query().Get("id")
+		converted, err := strconv.Atoi(responseIdStr)
+		if err != nil {
+			log.Printf("An error when converting string to int has occured: %s\n", err)
+		}
+		responseIdInt := converted
+		fmt.Printf("Deleted row has ID: %d\n", responseIdInt)
+		query := "UPDATE movies SET deleted = 1 WHERE id = ? RETURNING id;"
+		pk := deleteFlagMovie(db, query, responseIdInt)
+		fmt.Println(pk)
 	}
 
 	http.HandleFunc("/", home)
