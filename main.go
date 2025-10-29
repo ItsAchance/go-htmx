@@ -94,6 +94,7 @@ func insertMovie(db *sql.DB, movie Movie) int {
 }
 
 func queryMovies(db *sql.DB, query string, params []any) []Movie {
+	var id int
 	var title string
 	var director string
 	var rating int
@@ -107,7 +108,7 @@ func queryMovies(db *sql.DB, query string, params []any) []Movie {
 	defer rows.Close()
 
 	for rows.Next() {
-		err := rows.Scan(&title, &director, &rating, &favorite)
+		err := rows.Scan(&id, &title, &director, &rating, &favorite)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -203,7 +204,7 @@ func main() {
 		var params []any
 		var ratingInt int
 		var id int
-		query := "SELECT title, director, rating, favorite FROM movies WHERE "
+		query := "SELECT id, title, director, rating, favorite FROM movies WHERE "
 
 		title := r.FormValue("title")
 		director := r.FormValue("director")
