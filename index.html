@@ -15,30 +15,36 @@
     <div class="container mx-auto mt-8 text-center">
         <div class="bg-white p-4 border rounded-lg max-w-lg m-auto">
             <h1 class="text-2xl font-bold mb-4">Movie database</h1>
-            <form hx-post="/add-new-movie" hx-target="#add-movie-field">
-                <label for="movie-title">Title</label>
-                <input class="max-w-lg m-auto border rounded-md" type="text" name="title" id="movie-title"><br>
-
-                <label for="movie-director">Director</label>
-                <input class="max-w-lg m-auto border rounded-md" type="text" name="director" id="movie-director"><br>
-
-                <label for="movie-rating">Rating</label>
-                <input class="max-w-lg m-auto border rounded-md" type="text" name="rating" id="movie-rating"><br>
-
-                <label for="movie-favorite">Favorite</label>
-                <input type="checkbox" name="favorite" id="movie-favorite" value="true"><br>
-
-                <button class="bg-blue-500 text-white px-4 py-2 rounded" type="submit">Submit</button>
-                <button class="bg-blue-500 text-white px-4 py-2 rounded" type="button" hx-get="/find-movie"
-                    hx-target="#all-movies" hx-include="closest form">Find
-                    movie</button>
-                <button class="bg-blue-500 text-white px-4 py-2 rounded" type="button" hx-get="/get-movies"
-                    hx-target="#all-movies">All Movies</button>
+            <form hx-post="/add-new-movie" hx-target="#add-movie-field" class="space-y-4">
+                <div>
+                    <label for="movie-title" class="block text-sm font-medium mb-1">Title</label>
+                    <input class="w-full border rounded-md px-3 py-2" type="text" name="title" id="movie-title">
+                </div>
+                <div>
+                    <label for="movie-director" class="block text-sm font-medium mb-1">Director</label>
+                    <input class="w-full border rounded-md px-3 py-2" type="text" name="director" id="movie-director">
+                </div>
+                <div>
+                    <label for="movie-rating" class="block text-sm font-medium mb-1">Rating</label>
+                    <input class="w-full border rounded-md px-3 py-2" type="text" name="rating" id="movie-rating">
+                </div>
+                <div>
+                    <label for="movie-favorite" class="inline-flex items-center">
+                        <input type="checkbox" name="favorite" id="movie-favorite" value="true" class="mr-2">
+                        <span class="text-sm font-medium">Favorite</span>
+                    </label>
+                </div>
+                <div class="flex justify-center gap-2">
+                    <button class="bg-blue-500 text-white px-4 py-2 rounded" type="submit">Submit</button>
+                    <button class="bg-blue-500 text-white px-4 py-2 rounded" type="button" hx-get="/find-movie"
+                        hx-target="#all-movies" hx-include="closest form">Find movie</button>
+                    <button class="bg-blue-500 text-white px-4 py-2 rounded" type="button" hx-get="/get-movies"
+                        hx-target="#all-movies">All Movies</button>
+                </div>
             </form>
-
         </div>
 
-        <div class="mt-6 text-xl">
+        <div class="mt-6 text-xl bg-white border rounded-lg max-w m-auto">
             <p id="add-movie-field"></p>
             <ul>
                 <li id="all-movies"></li>
