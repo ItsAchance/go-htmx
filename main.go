@@ -12,10 +12,12 @@ import (
 )
 
 type Movie struct {
+	ID       int
 	Title    string
 	Director string
 	Rating   int
 	Favorite bool
+	Deleted  bool
 }
 
 func createMovieTable(db *sql.DB) {
@@ -25,6 +27,7 @@ func createMovieTable(db *sql.DB) {
 		director TEXT NOT NULL,
 		rating INTEGER NOT NULL,
 		favorite BOOL NOT NULL,
+		deleted BOOL DEFAULT false,
 		created DATETIME DEFAULT CURRENT_TIMESTAMP);`
 
 	_, err := db.Exec(query)
@@ -46,7 +49,7 @@ func queryMovie(db *sql.DB, query string, params []any) (title string, director 
 }
 
 func queryAllDataAllMovies(db *sql.DB) []Movie {
-	query := "SELECT title, director, rating, favorite FROM movies;"
+	query := "SELECT title, director, rating, favorite FROM movies WHERE DELETED = 0;"
 	var title string
 	var director string
 	var rating int
@@ -64,7 +67,12 @@ func queryAllDataAllMovies(db *sql.DB) []Movie {
 		if err != nil {
 			log.Fatal(err)
 		}
-		data = append(data, Movie{title, director, rating, favorite})
+		data = append(data, Movie{
+			Title:    title,
+			Director: director,
+			Rating:   rating,
+			Favorite: favorite,
+		})
 	}
 
 	return data
@@ -101,17 +109,33 @@ func queryMovies(db *sql.DB, query string, params []any) []Movie {
 		if err != nil {
 			log.Fatal(err)
 		}
-		data = append(data, Movie{title, director, rating, favorite})
+		data = append(data, Movie{
+			Title:    title,
+			Director: director,
+			Rating:   rating,
+			Favorite: favorite,
+		})
 	}
-
 	return data
+}
+
+func deleteFlagMovie(db *sql.DB, query string, params []any) int {
+	var pk int
+
+	_, err := db.Exec(query, params)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return pk
 }
 
 func main() {
 	// Connect to DB
-	db, _ := sql.Open("sqlite3", "movie-db.db")
+	db, err := sql.Open("sqlite3", "file:movie-db.db?_journal_mode=WAL")
+	if err != nil {
+		log.Printf("An error has occured: %s\n", err)
+	}
 	defer db.Close()
-	db.Exec(`PRAGMA journal_mode=WAL`)
 
 	// Creates movie table if not alrady created
 	createMovieTable(db)
@@ -133,13 +157,23 @@ func main() {
 		favorite := r.FormValue("favorite") == "true"
 
 		// Insert into new row
-		movie := Movie{title, director, ratingInt, favorite}
+		movie := Movie{
+			Title:    title,
+			Director: director,
+			Rating:   ratingInt,
+			Favorite: favorite,
+		}
 		pk := insertMovie(db, movie)
 		fmt.Printf("Inserted row ID: %d\n", pk)
 
 		movies := map[string][]Movie{
 			"Movies": {
-				{Title: title, Rating: ratingInt, Director: director, Favorite: favorite},
+				{
+					Title:    title,
+					Rating:   ratingInt,
+					Director: director,
+					Favorite: favorite,
+				},
 			},
 		}
 		htmlStr := fmt.Sprintf("%s added", title)
@@ -150,10 +184,10 @@ func main() {
 	// Query all rows in DB
 	getAll := func(w http.ResponseWriter, r *http.Request) {
 		rows := queryAllDataAllMovies(db)
-		//	fmt.Printf("All rows: %v\n", rows)
 
 		for _, row := range rows {
-			htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", row.Title, row.Director, row.Rating, row.Favorite)
+			// htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", row.Title, row.Director, row.Rating, row.Favorite)
+			htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v <button hx-delete=\"/delete-movie?id=%d\" hx-target=\"closest li\" hx-swap=\"outerHTML\">🗑️</button></li>", row.Title, row.Director, row.Rating, row.Favorite, row.ID)
 			tmpl, _ := template.New("t").Parse(htmlStr)
 			tmpl.Execute(w, nil)
 		}
@@ -166,12 +200,12 @@ func main() {
 	getMovie := func(w http.ResponseWriter, r *http.Request) {
 		var params []any
 		var ratingInt int
+		var id int
 		query := "SELECT title, director, rating, favorite FROM movies WHERE "
 
 		title := r.FormValue("title")
 		director := r.FormValue("director")
 		ratingStr := r.FormValue("rating")
-
 		// Check if rating is non-empty value and can be converted to int
 		if ratingStr != "" {
 			converted, err := strconv.Atoi(ratingStr)
@@ -195,7 +229,8 @@ func main() {
 
 			title, director, ratingInt, favorite = queryMovie(db, query, params)
 
-			htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", title, director, ratingInt, favorite)
+			// htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", title, director, ratingInt, favorite)
+			htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v <button hx-delete=\"/delete-movie?id=%d\" hx-target=\"closest li\" hx-swap=\"outerHTML\">🗑️</button></li>", title, director, ratingInt, favorite, id)
 			tmpl, _ := template.New("t").Parse(htmlStr)
 			tmpl.Execute(w, nil)
 
@@ -235,13 +270,14 @@ func main() {
 			}
 		}
 
-		fmt.Println(params)
-		fmt.Println(query)
+		// fmt.Println(params)
+		// fmt.Println(query)
 
 		rows := queryMovies(db, query, params)
 
 		for _, row := range rows {
-			htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", row.Title, row.Director, row.Rating, row.Favorite)
+			// htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v</li>", row.Title, row.Director, row.Rating, row.Favorite)
+			htmlStr := fmt.Sprintf("<li>%s - %s - %v - %v <button hx-delete=\"/delete-movie?id=%d\" hx-target=\"closest li\" hx-swap=\"outerHTML\">🗑️</button></li>", row.Title, row.Director, row.Rating, row.Favorite, row.ID)
 			tmpl, _ := template.New("t").Parse(htmlStr)
 			tmpl.Execute(w, nil)
 
@@ -250,10 +286,19 @@ func main() {
 		}
 	}
 
+	deleteMovie := func(w http.ResponseWriter, r *http.Request) {
+		response := r.URL.Query().Get("id")
+		fmt.Println(response)
+		//	query := "UPDATE movies SET deleted = 1 WHERE id = ? RETURNING id;"
+		//	pk := deleteFlagMovie(db, query, response)
+		//	fmt.Println(pk)
+	}
+
 	http.HandleFunc("/", home)
 	http.HandleFunc("/add-new-movie", addNewMovie)
 	http.HandleFunc("/get-movies", getAll)
 	http.HandleFunc("/find-movie", getMovie)
+	http.HandleFunc("/delete-movie", deleteMovie)
 
 	log.Fatal(http.ListenAndServe(":8000", nil))
 }
