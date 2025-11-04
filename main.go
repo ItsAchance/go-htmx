@@ -134,7 +134,7 @@ func deleteFlagMovie(db *sql.DB, query string, params int) int {
 
 func main() {
 	// Connect to DB
-	db, err := sql.Open("sqlite3", "file:movie-db.db?_journal_mode=WAL")
+	db, err := sql.Open("sqlite3", "file:movie-db.db?_journal_mode=WAL&_synchronous=NORMAL")
 	if err != nil {
 		log.Printf("An error has occured: %s\n", err)
 	}
